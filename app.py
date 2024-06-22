@@ -72,10 +72,10 @@ def evaluate(model, tokenizer, text, max_length=10):
     )
     input_ids = encoded_text['input_ids']
     tgt_input = input_ids[:, :-1]
-    
+
     with torch.no_grad():
         output = model(input_ids, tgt_input)
-    
+
     output_tokens = output.argmax(dim=-1)
     decoded_output = tokenizer.decode(output_tokens[0], skip_special_tokens=True)
     return decoded_output
@@ -85,7 +85,6 @@ st.title("Build a Transformer Model (LLM) with PyTorch")
 
 # Step 1: Define model parameters
 st.header("Step 1: Define Model Parameters")
-st.markdown("In this step, you will define the parameters for your transformer model. These parameters determine how the model processes and learns from the data.")
 
 # Add explainer for model parameters
 d_model_explainer = "A higher number can capture more complex patterns but requires more computational power."
@@ -94,10 +93,10 @@ num_encoder_layers_explainer = "More layers can improve understanding but requir
 num_decoder_layers_explainer = "More layers can help generate more accurate results but require more computation."
 
 # Update slider names to be more descriptive and add explanations
-d_model = st.slider("Embedding Size (d_model): Number of features in each word's vector representation.", 128, 512, 256, step=64, help=d_model_explainer)
-nhead = st.slider("Number of Attention Heads (nhead): How many parts of the data to focus on at once.", 1, 8, 4, help=nhead_explainer)
-num_encoder_layers = st.slider("Number of Encoder Layers: How many layers the model uses to process and understand the input data.", 1, 6, 2, help=num_encoder_layers_explainer)
-num_decoder_layers = st.slider("Number of Decoder Layers: How many layers to generate the output.", 1, 6, 2, help=num_decoder_layers_explainer)
+d_model = st.slider("Embedding Size (d_model)", 128, 512, 256, step=64, help="Number of features in each word's vector representation. " + d_model_explainer)
+nhead = st.slider("Number of Attention Heads (nhead)", 1, 8, 4, help="How many parts of the data to focus on at once. " + nhead_explainer)
+num_encoder_layers = st.slider("Number of Encoder Layers", 1, 6, 2, help="How many layers the model uses to process and understand the input data. " + num_encoder_layers_explainer)
+num_decoder_layers = st.slider("Number of Decoder Layers", 1, 6, 2, help="How many layers to generate the output. " + num_decoder_layers_explainer)
 
 vocab_size = 30522  # Using BERT base uncased tokenizer's vocab size
 
@@ -109,9 +108,8 @@ if st.button("Initialize Model"):
     else:
         st.error("Error: Embedding Size (d_model) must be divisible by Number of Attention Heads (nhead)")
 
-# Step 2: Load and preprocess data
-st.header("Step 2: Load and Preprocess Data")
-st.markdown("In this step, you will load and preprocess the data that the model will be trained on. Preprocessing ensures the data is in the right format for the model.")
+# Step 2: Load & Preprocess Data
+st.header("Step 2: Load & Preprocess Data")
 
 texts = ["I love programming.", "Python is great.", "Transformers are powerful."]
 try:
@@ -134,19 +132,18 @@ if 'tokenizer' in st.session_state:
         st.session_state.dataloader = dataloader
         st.success("Data preprocessed!")
 
-# Step 3: Train the model
-st.header("Step 3: Train the Model")
-st.markdown("In this step, you will train the transformer model using the preprocessed data. Training involves adjusting the model's parameters to minimize the error on the training data.")
+# Step 3: Train Model
+st.header("Step 3: Train Model")
 
-num_epochs = st.slider("Number of Epochs: Times the training algorithm will pass through the entire training dataset.", 1, 20, 10, help="More epochs can improve model performance but might also lead to overfitting.")
-learning_rate = st.slider("Learning Rate: How quickly the model updates its parameters.", 0.0001, 0.01, 0.001, step=0.0001, help="A higher learning rate can speed up training but might overshoot the optimal solution.")
+num_epochs = st.slider("Number of Epochs", 1, 20, 10, help="Times the training algorithm will pass through the entire training dataset. More epochs can improve model performance but might also lead to overfitting.")
+learning_rate = st.slider("Learning Rate", 0.0001, 0.01, 0.001, step=0.0001, help="How quickly the model updates its parameters. A higher learning rate can speed up training but might overshoot the optimal solution.")
 
 if "model" in st.session_state and "dataloader" in st.session_state:
     model = st.session_state.model
     dataloader = st.session_state.dataloader
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     criterion = nn.CrossEntropyLoss()
-    
+
     if st.button("Start Training"):
         losses = []
         for epoch in range(num_epochs):
@@ -161,7 +158,7 @@ if "model" in st.session_state and "dataloader" in st.session_state:
                 loss.backward()
                 optimizer.step()
                 epoch_loss += loss.item()
-            
+
             average_loss = epoch_loss / len(dataloader)
             losses.append(average_loss)
             st.write(f"Epoch {epoch+1}, Loss: {average_loss}")
@@ -170,9 +167,8 @@ if "model" in st.session_state and "dataloader" in st.session_state:
         st.success("Training completed!")
         plot_loss(losses)
 
-# Step 4: Evaluate the model
-st.header("Step 4: Evaluate the Model")
-st.markdown("In this step, you can evaluate the trained model by inputting text and observing the generated output. This helps you understand how well the model has learned from the training data.")
+# Step 4: Evaluate Model
+st.header("Step 4: Evaluate Model")
 
 input_text = st.text_input("Enter text for evaluation", "I love")
 
@@ -180,8 +176,7 @@ if "model" in st.session_state and st.button("Evaluate"):
     model = st.session_state.model
     tokenizer = st.session_state.tokenizer
     predicted_text = evaluate(model, tokenizer, input_text)
-    st.write(f"Input Text: {input_text}")
-    st.write(f"Predicted Continuation: {predicted_text}")
+    st.success(f"**Predicted Next Words:** {predicted_text}")
 
 # Add download button
 if "model" in st.session_state:
@@ -192,40 +187,34 @@ if "model" in st.session_state:
             data=file,
             file_name="model.pth",
             mime="application/octet-stream"
-            )
+        )
 
-# Additional functionalities: by Hugging Face Pipeline
-st.header("Additional Functionalities: Hugging Face Pipeline")
-st.markdown("These additional functionalities utilize pre-trained models by Hugging Face to perform tasks. These tools can help enhance the performance and capabilities of your model.")
+# Additional ML Functions
+st.header("Additional ML Functions", help="These additional functionalities utilize pre-trained models by Hugging Face to perform tasks. These tools can help enhance the performance and capabilities of your model.")
 
-# Masked Language Modeling
-st.subheader("Masked Language Modeling")
-st.markdown("**Masked Language Modeling**: This technique involves masking a word in a sentence and having the model predict the masked word. It's important for understanding context and improving the model's ability to fill in missing information.")
-masked_text = st.text_input("Enter text with [MASK] token", "Hello I'm a [MASK] model.")
-if st.button("Fill Mask"):
-    unmasker = pipeline('fill-mask', model='bert-base-uncased')
-    results = unmasker(masked_text)
-    st.write(results)
+# State to keep track of visibility
+if "show_additional" not in st.session_state:
+    st.session_state.show_additional = False
 
-# Feature Extraction
-st.subheader("Feature Extraction")
-st.markdown("**Feature Extraction**: This process involves converting raw text into numerical features that can be used by machine learning models. It's important because it allows the model to process and understand the input text.")
-feature_text = st.text_input("Enter text for feature extraction", "Replace me by any text you'd like.")
-if st.button("Extract Features"):
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    model = BertModel.from_pretrained("bert-base-uncased")
-    encoded_input = tokenizer(feature_text, return_tensors='pt')
-    with torch.no_grad():
-        output = model(**encoded_input)
-    st.write(output)
+if st.button("Show/Collapse All"):
+    st.session_state.show_additional = not st.session_state.show_additional
 
-# Additional information
-st.header("Further Learning Resources")
-st.markdown("""
-- [PyTorch Documentation](https://pytorch.org/docs/stable/index.html)
-- [Hugging Face Transformers Documentation](https://huggingface.co/transformers/)
-- ["Attention Is All You Need" Paper](https://arxiv.org/abs/1706.03762)
-- [Deep Learning Specialization by Andrew Ng (Coursera)](https://www.coursera.org/specializations/deep-learning)
-- [Natural Language Processing with Deep Learning (Stanford)](http://web.stanford.edu/class/cs224n/)
-- [Hugging Face's "Transformers" Course](https://huggingface.co/course/chapter1)
-""")
+if st.session_state.show_additional:
+    # Masked Language Modeling
+    st.subheader("Masked Language Modeling")
+    masked_text = st.text_input("Enter text with [MASK] token", "Hello I'm a [MASK] model.", key="masked_text", help="This technique involves masking a word in a sentence and having the model predict the masked word. It's important for understanding context and improving the model's ability to fill in missing information.")
+    if st.button("Fill Mask"):
+        unmasker = pipeline('fill-mask', model='bert-base-uncased')
+        results = unmasker(masked_text)
+        st.write(results)
+
+    # Feature Extraction
+    st.subheader("Feature Extraction")
+    feature_text = st.text_input("Enter text for feature extraction", "Replace me by any text you'd like.", key="feature_text", help="This process involves converting raw text into numerical features that can be used by machine learning models. It's important because it allows the model to process and understand the input text.")
+    if st.button("Extract Features"):
+        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        model = BertModel.from_pretrained("bert-base-uncased")
+        encoded_input = tokenizer(feature_text, return_tensors='pt')
+        with torch.no_grad():
+            output = model(**encoded_input)
+        st.write(output)
