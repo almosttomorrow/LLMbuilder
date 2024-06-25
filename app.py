@@ -48,15 +48,18 @@ class TextDataset(Dataset):
         return encoded_text['input_ids'].squeeze(), encoded_text['attention_mask'].squeeze()
 
 # Helper function to plot loss
-def plot_loss(losses):
+def plot_loss(losses, val_losses=None):
     plt.figure()
-    plt.plot(range(len(losses)), losses)
+    plt.plot(range(len(losses)), losses, label='Training Loss')
+    if val_losses is not None:
+        plt.plot(range(len(val_losses)), val_losses, label='Validation Loss')
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
-    plt.title('Training Loss Over Epochs')
+    plt.title('Loss Over Epochs')
+    plt.legend()
     st.pyplot(plt)
     st.markdown("""
-    **Training Loss Over Epochs**: This graph shows how the model's error decreases over time as it learns from the training data. A lower loss indicates a better performing model.
+    **Training and Validation Loss Over Epochs**: This graph shows how the model's error decreases over time as it learns from the training data and is validated on the validation data. A lower loss indicates a better performing model.
     """)
 
 # Helper function for model evaluation
@@ -135,8 +138,9 @@ if 'tokenizer' in st.session_state:
 # Step 3: Train Model
 st.header("Step 3: Train Model")
 
-num_epochs = st.slider("Number of Epochs", 1, 20, 10, help="Times the training algorithm will pass through the entire training dataset. More epochs can improve model performance but might also lead to overfitting.")
+num_epochs = st.slider("Number of Epochs", 1, 500, 10, help="Times the training algorithm will pass through the entire training dataset. More epochs can improve model performance but might also lead to overfitting.")
 learning_rate = st.slider("Learning Rate", 0.0001, 0.01, 0.001, step=0.0001, help="How quickly the model updates its parameters. A higher learning rate can speed up training but might overshoot the optimal solution.")
+patience = st.slider("Patience", 1, 10, 3, help="During training, if the validation loss does not improve for a number of consecutive epochs equal to the patience value, the training will stop.")
 
 if "model" in st.session_state and "dataloader" in st.session_state:
     model = st.session_state.model
@@ -144,8 +148,20 @@ if "model" in st.session_state and "dataloader" in st.session_state:
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     criterion = nn.CrossEntropyLoss()
 
+    # Split data into training and validation sets
+    train_texts = texts[:2]
+    val_texts = texts[2:]
+
+    # Create DataLoader for validation set
+    val_dataset = TextDataset(val_texts, tokenizer, max_length=10)
+    val_dataloader = DataLoader(val_dataset, batch_size=2, shuffle=False)
+
     if st.button("Start Training"):
         losses = []
+        val_losses = []  # List to store validation losses
+        best_val_loss = float('inf')
+        patience_counter = 0
+
         for epoch in range(num_epochs):
             epoch_loss = 0
             for src, _ in dataloader:
@@ -159,13 +175,46 @@ if "model" in st.session_state and "dataloader" in st.session_state:
                 optimizer.step()
                 epoch_loss += loss.item()
 
+            # Calculate average training loss for the epoch
             average_loss = epoch_loss / len(dataloader)
             losses.append(average_loss)
-            st.write(f"Epoch {epoch+1}, Loss: {average_loss}")
+
+            # Validation loop
+            val_epoch_loss = 0
+            model.eval()  # Set the model to evaluation mode
+            with torch.no_grad():
+                for val_src, _ in val_dataloader:
+                    val_tgt_input = val_src[:, :-1]
+                    val_tgt_output = val_src[:, 1:]
+
+                    val_output = model(val_src, val_tgt_input)
+                    val_loss = criterion(val_output.reshape(-1, vocab_size), val_tgt_output.reshape(-1))
+                    val_epoch_loss += val_loss.item()
+
+            # Calculate average validation loss for the epoch
+            average_val_loss = val_epoch_loss / len(val_dataloader)
+            val_losses.append(average_val_loss)
+
+            st.write(f"Epoch {epoch+1}, Training Loss: {average_loss}, Validation Loss: {average_val_loss}")
+
+            # Early stopping logic
+            if average_val_loss < best_val_loss:
+                best_val_loss = average_val_loss
+                patience_counter = 0
+            else:
+                patience_counter += 1
+
+            if patience_counter >= patience:
+                st.write(f"Early stopping triggered at epoch {epoch+1}")
+                break
+
+            # Set the model back to training mode
+            model.train()
 
         st.session_state.losses = losses
+        st.session_state.val_losses = val_losses
         st.success("Training completed!")
-        plot_loss(losses)
+        plot_loss(losses, val_losses)
 
 # Step 4: Evaluate Model
 st.header("Step 4: Evaluate Model")
@@ -196,7 +245,8 @@ st.header("Additional ML Functions", help="These additional functionalities util
 if "show_additional" not in st.session_state:
     st.session_state.show_additional = False
 
-if st.button("Show/Collapse All"):
+button_label = "Show All" if not st.session_state.show_additional else "Collapse All"
+if st.button(button_label):
     st.session_state.show_additional = not st.session_state.show_additional
 
 if st.session_state.show_additional:
